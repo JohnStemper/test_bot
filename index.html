@@ -15,7 +15,13 @@
 
     <script>
       const bridge = window.VKBridge;
-      const API_URL = "https://ТВОЙ_BOTHOST_URL:8000/api/user/"; // <-- сюда впиши реальный URL от Bothost
+      
+      // !!! ВАЖНО: Вставь сюда реальный URL твоего проекта на Bothost !!!
+      // Пример: https://my-stalker-bot.bothost.ru
+      // Не добавляй порт :8000 сюда, если домен уже ведет на API, или оставь, если нужно.
+      // Если Bothost дает прямой IP или специфический домен, используй его.
+      const BOTHOST_URL = "https://ТВОЙ_РЕАЛЬНЫЙ_URL_BOTHOST"; 
+      const API_URL = `\${BOTHOST_URL}:8000/api/user/`;
 
       async function init() {
         await bridge.send("VKWebAppInit");
@@ -23,61 +29,70 @@
         const userId = user.id;
 
         const root = document.getElementById("root");
+        
+        // Создаем базовые компоненты
         const view = new vkui.View();
         const panel = new vkui.Panel();
         const layout = new vkui.Layout();
-
         const header = new vkui.Header("Профиль сталкера");
-
-        // Заглушка данных, пока не загрузим
-        let data = { balance: 0, level: 1 };
-
+        
+        // Элементы статистики (создаем один раз)
+        const balanceText = new vkui.Text("0 монет", { size: "large" });
         const balanceBlock = new vkui.Card({
           children: [
             new vkui.Text("Баланс", { weight: "bold" }),
-            new vkui.Text(data.balance + " монет", { size: "large" }),
+            balanceText
           ],
         });
 
+        const levelText = new vkui.Text("1", { size: "large" });
         const levelBlock = new vkui.Card({
           children: [
             new vkui.Text("Уровень", { weight: "bold" }),
-            new vkui.Text(data.level, { size: "large" }),
+            levelText
           ],
         });
 
+        // Функция обновления данных (без перерисовки всего дерева)
+        async function updateData() {
+          try {
+            const res = await fetch(API_URL + userId);
+            
+            if (!res.ok) {
+              throw new Error(`Ошибка HTTP: \${res.status}`);
+            }
+
+            const json = await res.json();
+            
+            // Обновляем только текст внутри существующих компонентов
+            balanceText.text = json.balance + " монет";
+            levelText.text = json.level;
+            
+            console.log("Данные обновлены:", json);
+          } catch (e) {
+            console.error(e);
+            // В реальном проекте лучше показать красивый алерт через VK Bridge
+            alert("Не удалось загрузить данные. Проверьте консоль.");
+          }
+        }
+
+        // Кнопка обновления
         const refreshBtn = new vkui.Button("Обновить баланс", {
           mode: "primary",
-          onClick: async () => {
-            try {
-              const res = await fetch(API_URL + userId);
-              const json = await res.json();
-              data = json;
-              balanceBlock.children[1].text = data.balance + " монет";
-              levelBlock.children[1].text = data.level;
-              // Перерисовать (упрощённо)
-              panel.children = [header, new vkui.Group("stats", { header: new vkui.Text("Статистика") }, [balanceBlock, levelBlock])];
-              view.children = panel;
-              root.innerHTML = "";
-              root.appendChild(view.render());
-            } catch (e) {
-              console.error(e);
-              alert("Ошибка загрузки данных");
-            }
-          },
+          onClick: updateData
         });
 
-        layout.children = [
-          new vkui.Group("stats", { header: new vkui.Text("Статистика") }, [balanceBlock, levelBlock]),
-          refreshBtn,
-        ];
-
+        // Собираем интерфейс
+        const statsGroup = new vkui.Group("stats", { header: new vkui.Text("Статистика") }, [balanceBlock, levelBlock]);
+        
+        layout.children = [statsGroup, refreshBtn];
         panel.children = [header, layout];
         view.children = panel;
+        
         root.appendChild(view.render());
 
-        // Сразу обновим при старте
-        refreshBtn.props.onClick();
+        // Загружаем данные при старте
+        updateData();
       }
 
       init();
