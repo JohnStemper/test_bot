@@ -4,8 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Stalker2RPG Helper</title>
+
     <!-- VK Bridge -->
     <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
+
     <!-- VKUI -->
     <link rel="stylesheet" href="https://unpkg.com/@vkontakte/vkui@4.12.0/dist/vkui.css" />
     <script src="https://unpkg.com/@vkontakte/vkui@4.12.0/dist/vkui.js"></script>
@@ -15,13 +17,10 @@
 
     <script>
       const bridge = window.VKBridge;
-      
-      // !!! ВАЖНО: Вставь сюда реальный URL твоего проекта на Bothost !!!
-      // Пример: https://my-stalker-bot.bothost.ru
-      // Не добавляй порт :8000 сюда, если домен уже ведет на API, или оставь, если нужно.
-      // Если Bothost дает прямой IP или специфический домен, используй его.
-      const BOTHOST_URL = "https://bot-1793381514-7317-avgust-stemper.bothost.tech"; 
-      const API_URL = `\${BOTHOST_URL}:8000/api/user/`;
+
+      // ВАЖНО: это домен твоего проекта на Bothost (без порта)
+      const BOTHOST_URL = "https://bot-1793381514-7317-avgust-stemper.bothost.tech";
+      const API_URL = `${BOTHOST_URL}/api/profile?user_id=`;
 
       async function init() {
         await bridge.send("VKWebAppInit");
@@ -29,15 +28,14 @@
         const userId = user.id;
 
         const root = document.getElementById("root");
-        
-        // Создаем базовые компоненты
+
         const view = new vkui.View();
         const panel = new vkui.Panel();
         const layout = new vkui.Layout();
         const header = new vkui.Header("Профиль сталкера");
-        
-        // Элементы статистики (создаем один раз)
-        const balanceText = new vkui.Text("0 монет", { size: "large" });
+
+        // Элементы статистики
+        const balanceText = new vkui.Text("Загрузка...", { size: "large" });
         const balanceBlock = new vkui.Card({
           children: [
             new vkui.Text("Баланс", { weight: "bold" }),
@@ -53,45 +51,47 @@
           ],
         });
 
-        // Функция обновления данных (без перерисовки всего дерева)
         async function updateData() {
           try {
             const res = await fetch(API_URL + userId);
-            
+
             if (!res.ok) {
-              throw new Error(`Ошибка HTTP: \${res.status}`);
+              throw new Error(`Ошибка HTTP: ${res.status}`);
             }
 
             const json = await res.json();
-            
-            // Обновляем только текст внутри существующих компонентов
-            balanceText.text = json.balance + " монет";
-            levelText.text = json.level;
-            
+
+            // Обновляем баланс (если нет — ставим 0)
+            const balance = Number(json.balance) || 0;
+            balanceText.text = `${balance} монет`;
+
+            // Обновляем уровень (если нет — оставляем 1)
+            const level = Number(json.level) || 1;
+            levelText.text = String(level);
+
             console.log("Данные обновлены:", json);
           } catch (e) {
             console.error(e);
-            // В реальном проекте лучше показать красивый алерт через VK Bridge
-            alert("Не удалось загрузить данные. Проверьте консоль.");
+            // В реальном проекте лучше использовать VK Bridge для красивого алерта
+            alert("Не удалось загрузить данные. Проверьте консоль браузера (F12).");
           }
         }
 
-        // Кнопка обновления
         const refreshBtn = new vkui.Button("Обновить баланс", {
           mode: "primary",
           onClick: updateData
         });
 
-        // Собираем интерфейс
-        const statsGroup = new vkui.Group("stats", { header: new vkui.Text("Статистика") }, [balanceBlock, levelBlock]);
-        
+        const statsGroup = new vkui.Group("stats", {
+          header: new vkui.Text("Статистика")
+        }, [balanceBlock, levelBlock]);
+
         layout.children = [statsGroup, refreshBtn];
         panel.children = [header, layout];
         view.children = panel;
-        
+
         root.appendChild(view.render());
 
-        // Загружаем данные при старте
         updateData();
       }
 
