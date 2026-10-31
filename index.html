@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Stalker2RPG Helper</title>
+    <!-- VK Bridge -->
+    <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
+    <!-- VKUI -->
+    <link rel="stylesheet" href="https://unpkg.com/@vkontakte/vkui@4.12.0/dist/vkui.css" />
+    <script src="https://unpkg.com/@vkontakte/vkui@4.12.0/dist/vkui.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script>
+      const bridge = window.VKBridge;
+      const API_URL = "https://ТВОЙ_BOTHOST_URL:8000/api/user/"; // <-- сюда впиши реальный URL от Bothost
+
+      async function init() {
+        await bridge.send("VKWebAppInit");
+        const user = await bridge.send("VKWebAppGetUserInfo");
+        const userId = user.id;
+
+        const root = document.getElementById("root");
+        const view = new vkui.View();
+        const panel = new vkui.Panel();
+        const layout = new vkui.Layout();
+
+        const header = new vkui.Header("Профиль сталкера");
+
+        // Заглушка данных, пока не загрузим
+        let data = { balance: 0, level: 1 };
+
+        const balanceBlock = new vkui.Card({
+          children: [
+            new vkui.Text("Баланс", { weight: "bold" }),
+            new vkui.Text(data.balance + " монет", { size: "large" }),
+          ],
+        });
+
+        const levelBlock = new vkui.Card({
+          children: [
+            new vkui.Text("Уровень", { weight: "bold" }),
+            new vkui.Text(data.level, { size: "large" }),
+          ],
+        });
+
+        const refreshBtn = new vkui.Button("Обновить баланс", {
+          mode: "primary",
+          onClick: async () => {
+            try {
+              const res = await fetch(API_URL + userId);
+              const json = await res.json();
+              data = json;
+              balanceBlock.children[1].text = data.balance + " монет";
+              levelBlock.children[1].text = data.level;
+              // Перерисовать (упрощённо)
+              panel.children = [header, new vkui.Group("stats", { header: new vkui.Text("Статистика") }, [balanceBlock, levelBlock])];
+              view.children = panel;
+              root.innerHTML = "";
+              root.appendChild(view.render());
+            } catch (e) {
+              console.error(e);
+              alert("Ошибка загрузки данных");
+            }
+          },
+        });
+
+        layout.children = [
+          new vkui.Group("stats", { header: new vkui.Text("Статистика") }, [balanceBlock, levelBlock]),
+          refreshBtn,
+        ];
+
+        panel.children = [header, layout];
+        view.children = panel;
+        root.appendChild(view.render());
+
+        // Сразу обновим при старте
+        refreshBtn.props.onClick();
+      }
+
+      init();
+    </script>
+  </body>
+</html>
