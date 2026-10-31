@@ -20,7 +20,7 @@
 
       // ВАЖНО: это домен твоего проекта на Bothost (без порта)
       const BOTHOST_URL = "https://bot-1793381514-7317-avgust-stemper.bothost.tech";
-      const API_URL = `${BOTHOST_URL}/api/user?user_id=`;
+      const url = `${BOTHOST_URL}/api/user/${userId}`;
 
       async function init() {
         await bridge.send("VKWebAppInit");
